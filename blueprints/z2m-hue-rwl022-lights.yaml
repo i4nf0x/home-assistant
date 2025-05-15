@@ -1,0 +1,115 @@
+blueprint:
+  name: Z2M • Philips Hue Dimmer v2 (RWL022) – light + extra actions
+  description: >
+    This blueprint for Zigbee2MQTT defines basic controls for a smart lightbulb using the Hue Dimmer v2 (RWL022).
+    In addition, it allows you to assign three extra actions that are independent of the primary light control:
+      * Top “on” short press → Toggle light on/off
+      * Top “on” long press → Optional custom action
+      * Up / Down → Adjust brightness ±10%
+      * Bottom “hue” short press → Optional custom action
+      * Bottom “hue” long press → Optional custom action
+
+  domain: automation
+  input:
+    remote:
+      name: Hue Dimmer v2 device
+      selector:
+        device:
+          integration: mqtt
+          model: Hue dimmer switch
+
+    light_target:
+      name: Light to control
+      selector:
+        target:
+          entity:
+            domain: [light]
+
+    on_button_long:
+      name: Top button (long press)
+      default: []
+      selector:
+        action: {}
+
+    hue_button_short:
+      name: Bottom button (short press)
+      default: []
+      selector:
+        action: {}
+
+    hue_button_long:
+      name: Bottom button (long press)
+      default: []
+      selector:
+        action: {}
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_press_release
+    trigger: device
+    id: "on"
+  - domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_hold
+    trigger: device
+    id: "on_long"
+  - domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_press_release
+    trigger: device
+    id: hue
+  - domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_hold
+    trigger: device
+    id: hue_long
+  - domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: up_press
+    trigger: device
+    id: up
+  - domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: down_press
+    trigger: device
+    id: down
+
+action:
+  - choose:
+      - conditions: "{{ trigger.id == 'on' }}"
+        sequence:
+          - service: light.toggle
+            target: !input light_target
+
+      - conditions: "{{ trigger.id == 'on_long' }}"
+        sequence: !input on_button_long
+
+      - conditions: "{{ trigger.id == 'up' }}"
+        sequence:
+          - service: light.turn_on
+            target: !input light_target
+            data:
+              brightness_step_pct: 10
+
+      - conditions: "{{ trigger.id == 'down' }}"
+        sequence:
+          - service: light.turn_on
+            target: !input light_target
+            data:
+              brightness_step_pct: -10
+
+      - conditions: "{{ trigger.id == 'hue' }}"
+        sequence: !input hue_button_short
+
+      - conditions: "{{ trigger.id == 'hue_long' }}"
+        sequence: !input hue_button_long
